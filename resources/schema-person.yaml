@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: schema-person-config
+  namespace: confluent
+data:
+  schema: |
+    {
+      "namespace": "io.confluent.examples.person",
+      "type": "record",
+      "name": "Person",
+      "fields": [
+          {"name": "id", "type": "string"},
+          {"name": "name", "type": "string"},
+          {"name": "age", "type": "int"}
+      ]
+    }
+---
+apiVersion: platform.confluent.io/v1beta1
+kind: Schema
+metadata:
+  name: schema-person
+  namespace: confluent
+spec:
+  name: person.data-value
+  data:
+    format: avro
+    configRef: schema-person-config
+  normalize: true

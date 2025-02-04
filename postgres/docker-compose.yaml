@@ -1,0 +1,14 @@
+---
+services:
+  postgres:
+    # *---------------------------------------------------------------------------------------*
+    # To connect to the DB: 
+    #  docker-compose exec postgres bash -c 'psql -U $POSTGRES_USER $POSTGRES_DB'
+    # *---------------------------------------------------------------------------------------*
+    image: quay.io/debezium/example-postgres:latest 
+    container_name: postgres
+    environment:
+     - POSTGRES_USER=postgres
+     - POSTGRES_PASSWORD=postgres
+    volumes:
+     - ./data/postgres:/docker-entrypoint-initdb.d/

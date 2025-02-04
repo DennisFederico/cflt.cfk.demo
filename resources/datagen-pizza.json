@@ -1,0 +1,14 @@
+{
+    "name": "pizza_orders_datagen",
+    "config": {
+        "name": "pizza_orders_datagen",
+        "connector.class": "io.confluent.kafka.connect.datagen.DatagenConnector",
+        "tasks.max": "1",
+        "value.converter": "io.confluent.connect.avro.AvroConverter",
+        "value.converter.schema.registry.url": "http://schemaregistry.confluent.svc.cluster.local:8081",
+        "kafka.topic": "pizza_orders",
+        "max.interval": "5000",
+        "iterations": "100",
+        "quickstart": "pizza_orders"
+    }
+}
