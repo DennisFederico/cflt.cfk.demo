@@ -191,3 +191,68 @@ EMIT CHANGES;
 ### Database (OnPrem)
 
 ### HTTP Enpoint (OnPrem)
+
+
+
+
+## CONNECT LOGS RUNTIME
+
+```shell
+curl -Ss http://connect.confluent.bankinter.com/admin/loggers | jq
+
+curl -Ss http://connect.confluent.bankinter.com/admin/loggers/org.apache.kafka.connect.runtime.WorkerSourceTask | jq
+```
+
+### CHANGE FOR THE WORKER TASK
+
+```shell
+curl -s -X PUT -H "Content-Type:application/json" \
+http://connect.confluent.bankinter.com/admin/loggers/org.apache.kafka.connect.runtime.WorkerSourceTask \
+-d '{"level": "TRACE"}' | jq '.'
+```
+
+### CHANGE FOR CONNECTOR
+
+```shell
+curl -s -X PUT -H "Content-Type:application/json" \
+http://connect.confluent.bankinter.com/admin/loggers/io.debezium.connector.mysql \
+-d '{"level": "DEBUG"}' | jq '.'
+```
+
+## CLEAN SR SUBJECTS
+
+[Schema Registry REST API](https://docs.confluent.io/platform/current/schema-registry/develop/api.html)
+
+```shell
+curl http://sr.confluent.bankinter.com/subjects | jq
+curl http://sr.confluent.bankinter.com/subjects?deleted=true | jq
+
+curl -X DELETE http://sr.confluent.bankinter.com/subjects/<subject> | jq
+curl -X DELETE http://sr.confluent.bankinter.com/subjects/<subject>?permanent=true | jq
+```
+
+[Self-Managed Connector CSFLE](https://docs.confluent.io/platform/current/connect/manage-csfle.html)
+
+#### EXTRA
+
+```sql
+CREATE STREAM CUSTOMER_STREAM WITH (KAFKA_TOPIC='cdc32.accounts.customers', FORMAT='AVRO');
+
+CREATE TABLE CUSTOMERS_TABLE WITH (KAFKA_TOPIC='CUSTOMERS_TABLE', FORMAT='AVRO') AS
+SELECT ID AS CUSTOMER_ID,
+LATEST_BY_OFFSET(first_name) + ' ' + LATEST_BY_OFFSET(last_name) as CUSTOMER_NAME,
+LATEST_BY_OFFSET(EMAIL) AS EMAIL
+FROM CUSTOMER_STREAM
+GROUP BY ID
+EMIT CHANGES;
+
+CREATE STREAM OVERDRAFT_NOTIFICATION WITH (KAFKA_TOPIC='overdraft.notification', FORMAT='AVRO') AS
+SELECT C.CUSTOMER_ID,
+       C.CUSTOMER_NAME AS CUSTOMER_NAME,
+       C.EMAIL AS CUSTOMER_EMAIL,
+       O.ID AS ACCT_ID,
+       O.BALANCE AS ACCT_BALANCE
+FROM OVERDRAFT O
+LEFT JOIN CUSTOMERS_TABLE C ON O.CUSTOMER_ID = C.CUSTOMER_ID
+EMIT CHANGES;
+```

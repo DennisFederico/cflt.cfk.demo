@@ -1,0 +1,23 @@
+{
+  "name": "mysql_cdc_3",
+  "config": {
+    "connector.class": "io.debezium.connector.mysql.MySqlConnector",
+    "tasks.max": "1",
+    "key.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "transforms": "unwrap",
+    "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+    "transforms.unwrap.drop.tombstones": "false",
+    "topic.prefix": "cdc3",
+    "database.hostname": "170.253.61.156",
+    "database.port": "3306",
+    "database.user": "confluent",
+    "database.password": "connect",
+    "database.server.id": "661212",
+    "decimal.handling.mode": "double",
+    "value.converter.schema.registry.url": "http://schemaregistry.confluent.svc.cluster.local:8081",
+    "key.converter.schema.registry.url": "http://schemaregistry.confluent.svc.cluster.local:8081",
+    "schema.history.internal.kafka.topic": "cdc3.history",
+    "schema.history.internal.kafka.bootstrap.servers": "kafka:9071"
+  }
+}

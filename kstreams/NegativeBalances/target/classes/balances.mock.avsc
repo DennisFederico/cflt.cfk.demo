@@ -1,0 +1,24 @@
+{
+  "connect.name": "cdc3.accounts.account_balances.Value",
+  "fields": [
+    {
+      "name": "id",
+      "type": "int"
+    },
+    {
+      "name": "customer_id",
+      "type": "int"
+    },
+    {
+      "default": null,
+      "name": "balance",
+      "type": [
+        "null",
+        "double"
+      ]
+    }
+  ],
+  "name": "Balances",
+  "namespace": "io.cflt.dfederico.balances",
+  "type": "record"
+}

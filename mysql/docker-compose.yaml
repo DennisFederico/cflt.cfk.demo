@@ -4,7 +4,7 @@ services:
     # *---------------------------------------------------------------------------------------*
     # To connect to the DB:     
     # docker exec -it mysql bash -c 'mysql -u root -pdebezium'
-    # GRANT SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIENT  ON *.* TO 'mysqluser';
+    # Note that the user for CDC is debezium/debezium
     # *---------------------------------------------------------------------------------------*
     image: quay.io/debezium/example-mysql:latest 
     container_name: mysql
@@ -13,6 +13,6 @@ services:
     environment:
      - MYSQL_ROOT_PASSWORD=debezium
      - MYSQL_USER=mysqluser
-     - MYSQL_PASSWORD=mysqlpw
-    # volumes:
-    #  - ./config:/docker-entrypoint-initdb.d/
+     - MYSQL_PASSWORD=mysqlpass
+    volumes:
+     - ./config:/docker-entrypoint-initdb.d/

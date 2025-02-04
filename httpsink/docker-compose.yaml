@@ -1,0 +1,19 @@
+---
+services:
+  http-logger:
+    # *---------------------------------------------------------------------------------------*
+    # curl -X POST -H "Content-Type: application/json" -d '{
+    #   "name": "John Doe",
+    #   "age": 30,
+    #   "city": "New York",
+    #   "interests": ["reading", "coding", "traveling"],
+    #   "address": {
+    #     "street": "123 Main St",
+    #     "zip": "10001"
+    #   }
+    # }' http://localhost:5000/log
+    # *---------------------------------------------------------------------------------------*
+    image: json-logger
+    container_name: http-logger
+    ports:
+      - "5000:5000"

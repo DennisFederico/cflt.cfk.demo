@@ -1,0 +1,21 @@
+{
+  "name": "HttpSink",
+  "config": {
+    "connector.class": "io.confluent.connect.http.HttpSinkConnector",
+    "tasks.max": "1",
+    "key.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "topics": "cdc3.accounts.account_movements",
+    "http.api.url": "http://170.253.61.156:5000/log",
+    "request.method": "post",
+    "behavior.on.null.values": "ignore",
+    "headers": "Content-Type:application/json|Accept:application/json",
+    "connection.disallow.local.and.private.ips": "false",
+    "request.body.format": "json",
+    "batch.json.as.array": "false",
+    "reporter.result.topic.value.format": "json",
+    "reporter.bootstrap.servers": "kafka:9071",
+    "value.converter.schema.registry.url": "http://schemaregistry.confluent.svc.cluster.local:8081",
+    "key.converter.schema.registry.url": "http://schemaregistry.confluent.svc.cluster.local:8081"
+  }
+}
