@@ -15,6 +15,7 @@ data:
           {"name": "age", "type": "int"}
       ]
     }
+
 ---
 apiVersion: platform.confluent.io/v1beta1
 kind: Schema

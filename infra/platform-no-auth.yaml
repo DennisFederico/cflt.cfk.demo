@@ -26,11 +26,13 @@ metadata:
   labels:
     component: kafka
 spec:
-  replicas: 3
+  dataVolumeCapacity: 250Gi
+  storageClass:
+    name: retain-sc
+  replicas: 3    
   image:
     application: confluentinc/cp-server:7.8.0
-    init: confluentinc/confluent-init-container:2.10.0
-  dataVolumeCapacity: 250Gi
+    init: confluentinc/confluent-init-container:2.10.0  
   metricReporter:
     enabled: true
 

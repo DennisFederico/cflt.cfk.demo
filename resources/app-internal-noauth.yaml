@@ -7,7 +7,7 @@ metadata:
   namespace: confluent
 spec:
   replicas: 3
-  partitionCount: 2
+  partitionCount: 3
   configs:
     cleanup.policy: "delete"
 
@@ -44,10 +44,10 @@ spec:
       kafka-producer-perf-test \
         --topic app.internal.perf.topic  \
         --record-size 64 \
-        --throughput 10 \
+        --throughput -1 \
         --producer-props bootstrap.servers=kafka.confluent.svc.cluster.local:9071 \
         --producer.config /mnt/client.properties \
-        --num-records 1000
+        --num-records 100000
     volumeMounts:
       - name: client-properties
         mountPath: /mnt
