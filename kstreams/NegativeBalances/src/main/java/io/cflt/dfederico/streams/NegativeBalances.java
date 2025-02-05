@@ -91,10 +91,9 @@ public class NegativeBalances {
         final KStream<GenericRecord, GenericRecord> balances = builder.stream(balancesTopic);
         balances.peek((key, value) -> System.out.printf("INCOMING - key: %s, value: %s%n", key, value.get("balance")))
                 .process(new DeduplicationProcessor.Supplier(), DeduplicationProcessor.NEGATIVE_BALANCE_STORE)
+//                .print(Printed.toSysOut());
                 .peek((key, value) -> System.out.printf("NOTIFY - key: %s, value: %s%n", key, value.get("balance")))
                 .to(notificationsTopic);
-
-//        balances.print(Printed.toSysOut());
 
         return builder.build();
     }

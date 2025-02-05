@@ -2,7 +2,7 @@
 
 Using a modified version (w/Kraft) of the base [CFK deployment](https://github.com/DennisFederico/cfk-sandbox/tree/main/notls-noauth) with No AuthZ and No TLS.
 
-## CFK 2.8 (0.1145.6) Installation
+## CFK 2.8 (0.1145.6) Basic Installation
 
 CFK 2.10.0 (CP 7.8.0) [Release Notes](https://docs.confluent.io/operator/2.10/release-notes.html)
 
@@ -31,10 +31,12 @@ kubectl get crds
 kubectl explain <crd>
 ```
 
-### Install a Persistent Storage Class
+### Create a Persistent Storage Class
+
+See. [Persistent storage volumes](https://docs.confluent.io/operator/current/co-storage.html#persistent-storage-volumes) in the Confluent documentation.
 
 ```shell
-kubectl apply -f infra/storage-class.yaml
+kubectl apply -f infra/storageclass.yaml
 ```
 
 ### Deploy Cluster
@@ -62,13 +64,17 @@ kubectl apply -f infra/platform-no-auth.yaml -l component=c3
 kubectl apply -f infra/platform-no-auth.yaml -l component=restproxy
 ```
 
-### Create a Topic
+### Deploy Resources via CRD
+
+Example of CRD managed resource
+
+- Topic
 
 ```shell
 kubectl apply -f resources/topic-person.yaml
 ```
 
-### Deploy Schema
+- Schema
 
 ```shell
 kubectl apply -f resources/schema-person.yaml
@@ -84,11 +90,19 @@ kubectl logs -f pod/perf-producer-app
 kubectl logs -f pod/perf-consumer-app
 ```
 
-## Enable Loadbalancer (External Interface)
+### Enable Extenal Access (LoadBalancer)
 
-### ksqlDB
+This way we access Control Center without kubectl port-forward, and the rest of the services.
 
-#### Simple Operations
+Check the differences on [platform-no-auth-ext.yaml](infra/platform-no-auth-ext.yaml)
+
+## Usage Demos
+
+### Simple Operations with KSQLDB
+
+Mainly to confirm the correct deployment of the external access, since C3 won't proxy the communication to ksqldb for push queries (these open a socket between the cluster and the client browser).
+
+Remember to DNS the IPs exposed by the LBs or add them to your /etc/hosts
 
 - Create Stream with a specific format and topic
 
@@ -120,9 +134,9 @@ select * from USERS_DEMO EMIT CHANGES;
 select * from USERS_DEMO LIMIT 1;
 ```
 
-#### KSQL Pizza Demo
+### Source Connect (Datagen + ksqlDB)
 
-- Connector Datagen
+- Deploy Datagen Connector as a CRD
 
 ```shell
 kubectl apply -f resources/datagen-pizza.yaml
@@ -161,7 +175,7 @@ FROM PIZZA_ORDERS_LINES
 GROUP BY PRODUCT_ID;
 ```
 
-Create a Table of Product Names?
+Create a Table of Product Names (Dimension Table)
 
 ```sql
 CREATE TABLE PIZZA_PRODUCT_CATEGORY WITH (KAFKA_TOPIC='pizza_product_category', FORMAT='AVRO', REPLICAS=3) AS
@@ -188,55 +202,70 @@ GROUP BY CATEGORY
 EMIT CHANGES;
 ```
 
-### Database (OnPrem)
-
-### HTTP Enpoint (OnPrem)
-
-
-
-
-## CONNECT LOGS RUNTIME
-
-```shell
-curl -Ss http://connect.confluent.bankinter.com/admin/loggers | jq
-
-curl -Ss http://connect.confluent.bankinter.com/admin/loggers/org.apache.kafka.connect.runtime.WorkerSourceTask | jq
-```
-
-### CHANGE FOR THE WORKER TASK
-
-```shell
-curl -s -X PUT -H "Content-Type:application/json" \
-http://connect.confluent.bankinter.com/admin/loggers/org.apache.kafka.connect.runtime.WorkerSourceTask \
--d '{"level": "TRACE"}' | jq '.'
-```
-
-### CHANGE FOR CONNECTOR
-
-```shell
-curl -s -X PUT -H "Content-Type:application/json" \
-http://connect.confluent.bankinter.com/admin/loggers/io.debezium.connector.mysql \
--d '{"level": "DEBUG"}' | jq '.'
-```
-
-## CLEAN SR SUBJECTS
-
-[Schema Registry REST API](https://docs.confluent.io/platform/current/schema-registry/develop/api.html)
-
-```shell
-curl http://sr.confluent.bankinter.com/subjects | jq
-curl http://sr.confluent.bankinter.com/subjects?deleted=true | jq
-
-curl -X DELETE http://sr.confluent.bankinter.com/subjects/<subject> | jq
-curl -X DELETE http://sr.confluent.bankinter.com/subjects/<subject>?permanent=true | jq
-```
-
-[Self-Managed Connector CSFLE](https://docs.confluent.io/platform/current/connect/manage-csfle.html)
-
-#### EXTRA
+Now you can query the table as a Pull query to get the latest state (Sales by Category)
 
 ```sql
-CREATE STREAM CUSTOMER_STREAM WITH (KAFKA_TOPIC='cdc32.accounts.customers', FORMAT='AVRO');
+SELECT * FROM PIZZA_SALES_BY_CATEGORY;
+```
+
+Or as a Push Query to continuosly receive the updates to the table
+
+```sql
+SELECT * FROM PIZZA_SALES_BY_CATEGORY EMIT CHANGES;
+```
+
+### End-to-End Pipeline
+
+This pipeline starts with fetching changes from a local [mysql](mysql/docker-compose.yaml) database using a [Debezium CDC Source connector](https://debezium.io/documentation/reference/2.4/connectors/mysql.html), Changes are streamed into a topic per table where transformations are applied to the data (both via SMTs on the connector and use ksqlDB), a KStream application in the pipeline monitors acoount balances that become negative to emit an event to notify the account holder, these events are captured by a HTTP Sink Connector that calls an Generic HTTP endpoint locally.
+
+#### Database
+
+Using Docker Compose in [mysql](/mysql/) folder
+
+A [Notebook with queries](mysql/queries.mysql-notebook) is available, and the [initial dataset](mysql/config/init.sql), along with permisions for the connect user to read the binlog.
+
+#### CDC Surce Connector
+
+Using the Debezium CDC for mySQL. The configuration provided a a JSON that can be deployed using C3 or the Connect REST Endpoint.
+
+But before deploying the connector, it is required to install the plugin on the cluster
+
+```shell
+kubectl apply -f infra/connect-with-plugins.yaml
+```
+
+Then use latest example of the Connector (attempt 3)
+
+- [attempt 1](resources/connector_mysql_cdc_1_config.json) - Plain CDC without SMT's or cutomizations
+- [attempt 2](resources/connector_mysql_cdc_2_config.json) - Parameterize who decimals are converted/serialized
+- [attempt 3](resources/connector_mysql_cdc_3_config.json) - Builds upon attempt 2 and keeps only the final state of the record (removes the CDC meta and "before") using a SMT.
+
+**IMPORTANT**: Modify the configuration to the domain name or IP where the database is running, and make sure the firewall is open to access database ports.
+
+#### HTTP Receiving Endpoint
+
+Build the image from [httpsink/Dockerfile](httpsink/Dockerfile), deploy the docker compose and monitor the logs of the container. The application just output the content received on port 5000 and whether or not is a valid JSON.
+
+#### HTTP Sink Connector
+
+This connector configuration provided as JSON [here](resources/connector_HttpSink_config.json), needs to be modified according on where the HTTP receiver has been deployed.
+
+**IMPORTANT**: Modify the configuration to the domain name or IP where the HTTP Endpoint is running, and make sure the firewall is open (port 5000).
+
+#### KStream to monitor Accounts with Negative Balances
+
+The KStream (Java Application) that monitor and filter Balance change events to emit a notification is available [here](/kstreams/NegativeBalances/).
+
+The application is configured with a [properties file](kstreams/NegativeBalances/src/main/resources/stream.properties) that needs to be provided as an argument when running the application.
+
+#### ksqlDB Queries
+
+These queries prepare the data from the CDC to ksqlDB
+
+```sql
+CREATE STREAM OVERDRAFT WITH (KAFKA_TOPIC='notifications-topic', FORMAT='AVRO');
+
+CREATE STREAM CUSTOMER_STREAM WITH (KAFKA_TOPIC='cdc3.accounts.customers', FORMAT='AVRO');
 
 CREATE TABLE CUSTOMERS_TABLE WITH (KAFKA_TOPIC='CUSTOMERS_TABLE', FORMAT='AVRO') AS
 SELECT ID AS CUSTOMER_ID,
@@ -256,3 +285,49 @@ FROM OVERDRAFT O
 LEFT JOIN CUSTOMERS_TABLE C ON O.CUSTOMER_ID = C.CUSTOMER_ID
 EMIT CHANGES;
 ```
+
+## Miscellanous
+
+## Connect Logs
+
+Log level on Connect Workers and Connectors can be changed at runtime. 
+
+- The following commands show the current log level
+
+```shell
+curl -Ss http://connect.confluent.demo.com/admin/loggers | jq
+
+curl -Ss http://connect.confluent.demo.com/admin/loggers/org.apache.kafka.connect.runtime.WorkerSourceTask | jq
+```
+
+- To change the level of log for a Worked
+
+```shell
+curl -s -X PUT -H "Content-Type:application/json" \
+http://connect.confluent.demo.com/admin/loggers/org.apache.kafka.connect.runtime.WorkerSourceTask \
+-d '{"level": "TRACE"}' | jq '.'
+```
+
+- To change the log level of a specific connector, use the type/class of the connector
+
+```shell
+curl -s -X PUT -H "Content-Type:application/json" \
+http://connect.confluent.demo.com/admin/loggers/io.debezium.connector.mysql \
+-d '{"level": "DEBUG"}' | jq '.'
+```
+
+## CLEAN SR SUBJECTS
+
+[Schema Registry REST API](https://docs.confluent.io/platform/current/schema-registry/develop/api.html)
+
+```shell
+curl http://sr.confluent.demo.com/subjects | jq
+curl http://sr.confluent.demo.com/subjects?deleted=true | jq
+
+curl -X DELETE http://sr.confluent.demo.com/subjects/<subject> | jq
+curl -X DELETE http://sr.confluent.demo.com/subjects/<subject>?permanent=true | jq
+```
+
+## Blog about CSFLE in Connect
+
+[Self-Managed Connector CSFLE](https://docs.confluent.io/platform/current/connect/manage-csfle.html)

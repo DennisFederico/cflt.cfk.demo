@@ -13,7 +13,7 @@ spec:
     value.converter: "io.confluent.connect.avro.AvroConverter"
     value.converter.schema.registry.url: "http://schemaregistry.confluent.svc.cluster.local:8081"    
     max.interval: "5000"
-    iterations: "100"
+    iterations: "10000"
   restartPolicy:
     type: OnFailure
     maxRetry: 5
