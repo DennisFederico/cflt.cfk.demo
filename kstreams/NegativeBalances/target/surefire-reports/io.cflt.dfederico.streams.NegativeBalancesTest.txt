@@ -1,4 +1,0 @@
--------------------------------------------------------------------------------
-Test set: io.cflt.dfederico.streams.NegativeBalancesTest
--------------------------------------------------------------------------------
-Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.260 s -- in io.cflt.dfederico.streams.NegativeBalancesTest
