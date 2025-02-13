@@ -1,36 +1,41 @@
 # Start Services (KeyCloak)
 
-Docker compose in [keycloak](keycloak/) folder.
+Docker compose or K8s deployment in [keycloak](keycloak/) folder.
 
 ## Tests KeyCloak
 
 Assuming `keycloak` is added to `etc/hosts` or any other name to the DNS.
 
 ```shell
-curl --url http://keycloak:8080/realms/kafka-authbearer/.well-known/openid-configuration | j
+curl --url http://keycloak/realms/sso_test/.well-known/openid-configuration | jq
 ```
 
-Assuming the [simple](keycloak/realms/simple-realm.json) realm configuration.
+Assuming the [demo](keycloak/realms/demo-realm.json) realm configuration.
 
 ```shell
 curl --request POST \
-  --url http://keycloak:8080/realms/kafka-authbearer/protocol/openid-connect/token \
+  --url http://keycloak/realms/sso_test/protocol/openid-connect/token \
   -H 'Content-Type: application/x-www-form-urlencoded' \
   --data-urlencode 'grant_type=client_credentials' \
   --data-urlencode 'client_id=kafka_client' \
-  --data-urlencode 'client_secret=kafka_client_secret' \
+  --data-urlencode 'client_secret=VwQ0h755Ni8s595ZY7XmOgMD8BWTAWri' \
   | jq
 ```
 
 Decode the token, it may lack a closing final `=` as tokens are padded in blocks of 4 bytes (note the use of awk)
 
 ```shell
+
+### IMPORTANT... The below code has a hack that adds one padding symbol (=) to terminate the json.
+### Tokens are 4 bytes and you might need to ad up to three (3) depending on the toker
+### Othewise 'jq' won't pretty print the decoded token
+
 curl -s --request POST \
-  --url http://keycloak:8080/realms/kafka-authbearer/protocol/openid-connect/token \
+  --url http://keycloak/realms/sso_test/protocol/openid-connect/token \
   -H 'Content-Type: application/x-www-form-urlencoded' \
   --data-urlencode 'grant_type=client_credentials' \
   --data-urlencode 'client_id=kafka_client' \
-  --data-urlencode 'client_secret=kafka_client_secret' \
+  --data-urlencode 'client_secret=VwQ0h755Ni8s595ZY7XmOgMD8BWTAWri' \
   | jq -r .access_token \
   | cut -d'.' -f2 \
   | awk '{print $1"="}' \
@@ -53,7 +58,7 @@ kubectl create secret generic mds-key-pair \
 kubectl apply -f certs/generated/mds-key-pair.yaml
 ```
 
-### MDS User Store
+### MDS File User Store
 
 Users that login from Control Center and other HTTP Basic service
 
@@ -73,9 +78,30 @@ kubectl create secret generic userstore-secret \
 kubectl apply -f infra/auth/secrets/userstore-secret.yaml
 ```
 
+### MDS OIDC Provider
+
+This is required for [mTLS+OAuth+RBAC](./platform-mtls-oauth-rbac.yaml). Used to validate Tokens presented by Kafka Clients that access Kafka
+
+```shell
+kubectl create secret generic oidc-creds \
+  --from-file=oidcClientSecret.txt=infra/auth/secrets/oidc-creds.txt \
+  --namespace confluent \
+  --dry-run=client \
+  --output yaml >> infra/auth/secrets/oidc-creds.yaml
+
+kubectl apply -f infra/auth/secrets/oidc-creds.yaml
+```
+
+## RoleBindings
+
+Remember to create the rolebinding for the user you are testing below.
+See [client-rb.yaml](./client-rb.yaml)
+
 ## TEST mTLS (KAFKA)
 
 Assume a certificate created for a user using the same CA in the Kafka Truststore.
+
+Set the CN to the user you are testing
 
 ```shell
 openssl genpkey -algorithm RSA -out certs/generated/client.key -aes256
@@ -91,13 +117,8 @@ For mTLS you need to provide a container with Cert and Key (p12)
 openssl pkcs12 -export -in certs/generated/client.pem -inkey certs/generated/client.key -out certs/generated/client.p12
 ```
 
-Create a truststore with the CA presented by the broker
-
-```shell
-
-```
-
-Properties for connection
+Properties for connection [mts-client.properties](secrets/mtls-client.properties)
+**NOTE:** Trustore/Keystore path is usually absolute when dealing with kafka CLI
 
 ```properties
 security.protocol=SSL
@@ -107,6 +128,36 @@ ssl.keystore.password=<your password>
 ssl.key.password=<your password>
 ssl.truststore.type=PEM
 ssl.truststore.location=
+```
+
+```shell
+$ kafka-topics --bootstrap-server kafka.confluent.demo.com:9093 \
+   --command-config infra/auth/secrets/mtls-client.properties \
+   --list
+```
+
+## Test OAuth Kafka
+
+Properties for connection [oauth-client.properties](secrets/oauth-client.properties)
+**NOTE:** Trustore/Keystore path is usually absolute when dealing with kafka CLI
+
+```properties
+security.protocol=SASL_SSL
+sasl.mechanism=OAUTHBEARER
+ssl.truststore.type=
+ssl.truststore.location=
+ssl.truststore.password=
+sasl.login.callback.handler.class=org.apache.kafka.common.security.oauthbearer.secured.OAuthBearerLoginCallbackHandler
+sasl.oauthbearer.token.endpoint.url=http://keycloak/realms/sso_test/protocol/openid-connect/token
+sasl.jaas.config=org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required \
+   clientId="" \
+   clientSecret="";
+```
+
+```shell
+$ kafka-topics --bootstrap-server kafkaoauth.confluent.demo.com:9092 \
+  --command-config infra/auth/secrets/oauth-client.properties \
+  --list
 ```
 
 ## Schema Registry
@@ -146,7 +197,7 @@ kafka-avro-console-consumer --bootstrap-server kafka.confluent.demo.com:9092 --t
 --from-beginning
 ```
 
-## KSQLDB (Bearer)
+## KSQLDB (Bearer) - Work In Progress
 
 ```shell
 kubectl create secret generic ksqldb-bearer \
@@ -178,12 +229,3 @@ kubectl create secret generic c3-ksqldb-basic \
 kubectl apply -f infra/auth/secrets/c3-ksqldb-basic.yaml
 ```
 
-```shell
-kubectl create secret generic oidc-creds \
-  --from-file=oidcClientSecret.txt=infra/auth/secrets/oidc-creds.txt \
-  --namespace confluent \
-  --dry-run=client \
-  --output yaml >> infra/auth/secrets/oidc-creds.yaml
-
-kubectl apply -f infra/auth/secrets/oidc-creds.yaml
-```

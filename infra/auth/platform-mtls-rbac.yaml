@@ -71,7 +71,6 @@ spec:
         type: mtls
         principalMappingRules:
           - RULE:^CN=([a-zA-Z0-9.]*).*$/$1/
-          # - 'RULE:.*CN[\s]?=[\s]?([a-zA-Z0-9.]*)?.*/$1/'
     internal:
       tls:
         enabled: true
@@ -79,13 +78,11 @@ spec:
         type: mtls
         principalMappingRules:
           - RULE:^CN=([a-zA-Z0-9.]*).*$/$1/
-          # - 'RULE:.*CN[\s]?=[\s]?([a-zA-Z0-9.]*)?.*/$1/'
     external:
       authentication:
         type: mtls
         principalMappingRules:
           - RULE:^CN=([a-zA-Z0-9.]*).*$/$1/
-          # - 'RULE:.*CN[\s]?=[\s]?([a-zA-Z0-9.]*)?.*/$1/'
       tls:
         enabled: true
         # For convenience Added the external SAN using the Operator
