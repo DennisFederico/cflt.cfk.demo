@@ -331,3 +331,38 @@ curl -X DELETE http://sr.confluent.demo.com/subjects/<subject>?permanent=true | 
 ## Blog about CSFLE in Connect
 
 [Self-Managed Connector CSFLE](https://docs.confluent.io/platform/current/connect/manage-csfle.html)
+
+## Customize Operator (on Deployment) via Helm
+
+See. [Deploy Customized Operator](https://docs.confluent.io/operator/current/co-deploy-cfk.html#deploy-customized-co)
+
+### Option 1. Use values.yaml
+
+```shell
+mkdir -p .ignore-cfk
+
+helm pull confluentinc/confluent-for-kubernetes \
+  --untar \
+  --untardir=.ignore-cfk \
+  --namespace confluent
+```
+
+Create a copy of the `values.yaml` file with the desired configuration and apply.
+
+```shell
+helm upgrade --install cfk-operator \
+  confluentinc/confluent-for-kubernetes \
+  --values .ignore-cfk/values-copy.yaml \
+  --namespace confluent
+```
+
+### Option 2. Use Argument Flags
+
+```shell
+helm upgrade --install cfk-operator \
+  confluentinc/confluent-for-kubernetes \
+  --set managedCerts.enabled=true \
+  --set managedCerts.caCertificate.secretRef=ca-pair-cfk \
+  --set managedCerts.sans='*.confluent.demo.com' \
+  --namespace confluent
+```

@@ -1,0 +1,100 @@
+{
+    "realm": "kafka-authbearer",
+    "enabled": true,
+    "sslRequired": "external",
+    "registrationAllowed": true,
+    "requiredCredentials": [ "password" ],
+    "accessTokenLifespan": 3600,
+    "accessTokenLifespanForImplicitFlow": 7200,
+    "ssoSessionIdleTimeout": 18000,
+    "ssoSessionMaxLifespan": 36000,
+    "users" : [
+      {
+        "username" : "kafkauser",
+        "enabled": true,
+        "email" : "dfederico@kafka.net",
+        "firstName": "Dennis",
+        "lastName": "Federico",
+        "credentials" : [
+          { "type" : "password",
+            "value" : "securepass" }
+        ],
+        "realmRoles": [ "USER", "ADMIN"],
+        "clientRoles": {
+          "account": ["view-profile", "manage-account"]
+        }
+      }
+    ],
+    "roles" : {
+      "realm" : [
+        {
+          "name": "USER",
+          "description": "Group user privileges"
+        },
+        {
+          "name": "ADMIN",
+          "description": "Group admin privileges"
+        }
+      ]
+    },
+    "clients": [
+      {
+        "clientId": "kafka_client",
+        "surrogateAuthRequired": false,
+        "enabled": true,
+        "alwaysDisplayInConsole": false,
+        "clientAuthenticatorType": "client-secret",
+        "secret": "kafka_client_secret",
+        "redirectUris": [
+          "*"
+        ],
+        "webOrigins": [],
+        "notBefore": 0,
+        "bearerOnly": false,
+        "consentRequired": false,
+        "standardFlowEnabled": false,
+        "implicitFlowEnabled": false,
+        "directAccessGrantsEnabled": false,
+        "serviceAccountsEnabled": true,
+        "authorizationServicesEnabled": true,
+        "publicClient": false,
+        "protocol": "openid-connect",
+        "fullScopeAllowed": true
+      },
+      {
+        "clientId": "kafka_broker",
+        "surrogateAuthRequired": false,
+        "enabled": true,
+        "alwaysDisplayInConsole": false,
+        "clientAuthenticatorType": "client-secret",
+        "secret": "kafka_broker_secret",
+        "redirectUris": [
+          "*"
+        ],
+        "webOrigins": [],
+        "notBefore": 0,
+        "bearerOnly": false,
+        "consentRequired": false,
+        "standardFlowEnabled": false,
+        "implicitFlowEnabled": false,
+        "directAccessGrantsEnabled": false,
+        "serviceAccountsEnabled": true,
+        "authorizationServicesEnabled": true,
+        "publicClient": false,
+        "protocol": "openid-connect",
+        "fullScopeAllowed": true
+      }
+    ],
+    "clientScopeMappings": {
+      "account": [
+        {
+          "client": "kafka_client",
+          "roles": ["view-profile"]
+        },
+        {
+          "client": "kafka_broker",
+          "roles": ["view-profile"]
+        }
+      ]
+    }
+  }

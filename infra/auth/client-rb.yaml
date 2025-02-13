@@ -1,0 +1,72 @@
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: rb-dfederico-kafka
+  namespace: confluent
+  labels:
+    component: kafka
+spec:
+  principal:
+    type: user
+    name: dfederico
+  role: SystemAdmin
+---
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: rb-dfederico-sr
+  namespace: confluent
+  labels:
+    component: sr
+spec:
+  principal:
+    type: user 
+    name: dfederico
+  clustersScopeByIds:
+    schemaRegistryClusterId: id_schemaregistry_confluent
+  role: SystemAdmin
+---
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: rb-dfederico-connect
+  namespace: confluent
+  labels:
+    component: connect
+spec:
+  principal:
+    type: user 
+    name: dfederico
+  clustersScopeByIds:
+    connectClusterId: confluent.connect
+  role: SystemAdmin
+---
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: rb-dfederico-ksqldb
+  namespace: confluent
+  labels:
+    component: ksqldb
+spec:
+  principal:
+    type: user 
+    name: dfederico
+  clustersScopeByIds:
+    ksqlClusterId: confluent.ksqldb_
+  role: SystemAdmin
+---
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: rb-c3-ksqldb
+  namespace: confluent
+  labels:
+    component: c3-ksqldb
+spec:
+  principal:
+    type: user 
+    name: controlcenter
+  clustersScopeByIds:
+    ksqlClusterId: confluent.ksqldb_
+  role: SystemAdmin
