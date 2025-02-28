@@ -187,16 +187,20 @@ Considering the above, a simple ordering strategy would be:
 
 Leaving wave 0 for other non CFK resources like K8s Secrets
 
-### Additional Considerations
+### Serivice Account Certificates as Secret
 
-
-
-### Application Credentials (Connect)
+The content of a `TLS` like secret that can be used for mTLS client credentials are similar to [this](https://docs.confluent.io/operator/current/co-network-encryption.html#provide-custom-tls-certificates).
 
 ```shell
-kubectl create secret generic appuser-secret \
+# Requires the client public cert, private key and ca public cert
+
+kubectl create secret generic service-account-secret \
   --from-file=tls.crt=certs/generated/client.pem \
   --from-file=ca.crt=certs/generated/InternalCAcert.pem \
-  --from-file=tls.key=certs/generated/client-key.pem
+  --from-file=tls.key=certs/generated/client-key.pem \
+  --namespace confluent \
+  --dry-run=client \
+  --output yaml >> gitops/repo/cfk/secrets/service-account-secret.yaml
 ```
 
+Note that with the above we can change the  datagen `connector` [deployment](repo/cfk/connectors/datagen.yaml) to use `service-account-secret` to interface with the connect REST Api instead of the internal `connect` certificate. Also make sure that the principal of the certificate has the role to deploy connectors, which in this case it will as in [dfederico-roles.yaml](repo/cfk/roles/dfederico-roles.yaml).
