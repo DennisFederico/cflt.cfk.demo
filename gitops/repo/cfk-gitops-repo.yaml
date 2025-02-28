@@ -1,0 +1,17 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cfk-gitops-repo
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+stringData:
+  type: git
+  url: git@github.com:DennisFederico/cflt.cfk.demo.git
+  sshPrivateKey: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    CONTENT HERE - MIND THE IDENTATION
+    -----END OPENSSH PRIVATE KEY-----
+  insecure: "false"
+  enableLfs: "false"

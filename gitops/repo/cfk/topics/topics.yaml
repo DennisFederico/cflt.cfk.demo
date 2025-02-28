@@ -1,0 +1,73 @@
+# ---
+# apiVersion: platform.confluent.io/v1beta1
+# kind: KafkaTopic
+# metadata:
+#   name: orders-topic
+#   namespace: confluent
+#   annotations:
+#     argocd.argoproj.io/sync-wave: "2
+# spec:
+#   kafkaRestClassRef:
+#     name: default
+#     namespace: confluent
+#   replicas: 3
+#   partitionCount: 3
+#   configs:
+#     cleanup.policy: "delete"
+#     retention.ms: "604800000"  # 7 days
+#     min.insync.replicas: "2"
+
+# ---
+# apiVersion: platform.confluent.io/v1beta1
+# kind: KafkaTopic
+# metadata:
+#   name: payments-topic
+#   namespace: confluent
+#   annotations:
+#     argocd.argoproj.io/sync-wave: "2"
+# spec:
+#   kafkaRestClassRef:
+#     name: default
+#     namespace: confluent
+#   replicas: 3
+#   partitionCount: 3
+#   configs:
+#     cleanup.policy: "delete"
+#     retention.ms: "604800000"  # 7 days
+#     min.insync.replicas: "2"
+
+# ---
+# apiVersion: platform.confluent.io/v1beta1
+# kind: KafkaTopic
+# metadata:
+#   name: users-topic
+#   namespace: confluent
+#   annotations:
+#     argocd.argoproj.io/sync-wave: "2"
+# spec:
+#   kafkaRestClassRef:
+#     name: default
+#     namespace: confluent
+#   replicas: 3
+#   partitionCount: 1
+#   configs:
+#     cleanup.policy: "compact"
+#     min.cleanable.dirty.ratio: "0.5"
+#     min.insync.replicas: "2"
+
+# ---
+# apiVersion: platform.confluent.io/v1beta1
+# kind: KafkaTopic
+# metadata:
+#   name: user-events
+#   namespace: kafka
+#   annotations:
+#     argocd.argoproj.io/sync-wave: "2"
+# spec:
+#   kafkaRestClassRef:
+#     name: default
+#     namespace: confluent
+#   replicas: 3
+#   partitionCount: 3
+#   configs:
+#     retention.ms: "2592000000"  # 30 days
