@@ -1,0 +1,35 @@
+## THIS ARE TEMPORAL AS A HACKING WAY TO MAKE THE DATAGEN CONNECTOR WORK
+## WITHOUT DEPLOYING A SECRET WITH THE CERTIFICATES OF THE APPLICATION SERVICE ACCOUNT
+---
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: connect-kafka-admin
+  namespace: confluent
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  principal:
+    type: user 
+    name: connect
+  clustersScopeByIds:
+    connectClusterId: confluent.connect
+  role: SystemAdmin
+
+---
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: connect-pizza-topic-owner
+  namespace: confluent
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  principal:
+    type: user
+    name: connect
+  role: ResourceOwner
+  resourcePatterns:
+    - name: "*"
+      patternType: LITERAL
+      resourceType: Topic

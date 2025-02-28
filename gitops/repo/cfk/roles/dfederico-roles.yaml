@@ -1,0 +1,51 @@
+---
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: dfederico-kafka-admin
+  namespace: confluent
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  labels:
+    component: kafka
+spec:
+  principal:
+    type: user
+    name: dfederico
+  role: SystemAdmin
+
+---
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: dfederico-sr-admin
+  namespace: confluent
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  labels:
+    component: sr
+spec:
+  principal:
+    type: user 
+    name: dfederico
+  clustersScopeByIds:
+    schemaRegistryClusterId: id_schemaregistry_confluent
+  role: SystemAdmin
+
+---
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: dfederico-connect-admin
+  namespace: confluent
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  labels:
+    component: connect
+spec:
+  principal:
+    type: user 
+    name: dfederico
+  clustersScopeByIds:
+    connectClusterId: confluent.connect
+  role: SystemAdmin

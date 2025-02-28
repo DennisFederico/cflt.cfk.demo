@@ -1,0 +1,29 @@
+---
+apiVersion: platform.confluent.io/v1beta1
+kind: Connector
+metadata:
+  name: pizza-orders-datagen-connector
+  namespace: confluent
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  connectRest:
+    authentication:
+      type: mtls
+      sslClientAuthentication: true
+    # THIS COULD USE THE SECRET OF THE APPLICATION SERIVCE ACCOUNT TO CONNECT TO THE CONNECT CLUSTER
+    tls:
+      secretRef: connect-generated-jks
+  name: pizza-orders-datagen
+  class: "io.confluent.kafka.connect.datagen.DatagenConnector"
+  taskMax: 1
+  configs:
+    quickstart: "pizza_orders"
+    kafka.topic: "pizza-orders"
+    value.converter: "org.apache.kafka.connect.json.JsonConverter"    
+    max.interval: "5000"
+    iterations: "10000"
+    # TODO: ADDITIONAL CONFIGURATION WHEN USING MTLS
+  restartPolicy:
+    type: OnFailure
+    maxRetry: 5

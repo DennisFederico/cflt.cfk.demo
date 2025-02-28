@@ -1,0 +1,53 @@
+#---
+# apiVersion: platform.confluent.io/v1beta1
+# kind: ConfluentRolebinding
+# metadata:
+#   name: app-all-topics-read
+#   namespace: confluent
+#  annotations:
+#    argocd.argoproj.io/sync-wave: "1"
+# spec:
+#   principal:
+#     type: user
+#     name: app-svc-acct
+#   role: DeveloperRead
+#   resourcePatterns:
+#     - name: "*"
+#       patternType: LITERAL
+#       resourceType: Topic
+
+#---
+# apiVersion: platform.confluent.io/v1beta1
+# kind: ConfluentRolebinding
+# metadata:
+#   name: app-all-topics-read
+#   namespace: confluent
+#   annotations:
+#     argocd.argoproj.io/sync-wave: "1"
+# spec:
+#   principal:
+#     type: user
+#     name: app-svc-acct
+#   role: DeveloperWrite
+#   resourcePatterns:
+#     - name: "my-topic"
+#       patternType: LITERAL
+#       resourceType: Topic
+
+### TODO: Add example for ConsumerGroup
+
+# ---
+# apiVersion: platform.confluent.io/v1beta1
+# kind: ConfluentRoleBinding
+# metadata:
+#   name: schema-developer-rolebinding
+#   namespace: kafka
+# spec:
+#   principal:
+#     type: user
+#     name: app-svc-acct
+#   role: ResourceOwner
+#   resourcePatterns:
+#     - name: "some-schema"
+#       patternType: LITERAL
+#       resourceType: Subject
