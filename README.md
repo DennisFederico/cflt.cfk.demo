@@ -21,6 +21,17 @@ helm upgrade --install cfk-operator \
   --namespace confluent
 ```
 
+For self-managed certificates... Check the last part of this document
+
+```shell
+helm upgrade --install cfk-operator \
+  confluentinc/confluent-for-kubernetes \
+  --set managedCerts.enabled=true \
+  --set managedCerts.caCertificate.secretRef=ca-pair-cfk \
+  --set managedCerts.sans='*.confluent.demo.com' \
+  --namespace confluent
+```
+
 ### About CRDs
 
 [CFK 2.10 API](https://docs.confluent.io/operator/2.10/co-api.html)
