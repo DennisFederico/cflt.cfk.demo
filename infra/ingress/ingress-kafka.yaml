@@ -1,0 +1,60 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-kafka
+  namespace: confluent
+  annotations:
+    ingress.kubernetes.io/ssl-passthrough: "true"
+    nginx.ingress.kubernetes.io/ssl-passthrough: "true"    
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"    
+    nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - bootstrap.confluent.demo.com
+        - broker0.confluent.demo.com
+        - broker1.confluent.demo.com
+        - broker2.confluent.demo.com
+  rules:
+    - host: bootstrap.confluent.demo.com
+      http:
+        paths:
+          - pathType: Prefix
+            path: /
+            backend:
+              service:
+                name: kafka-bootstrap
+                port:
+                  number: 9092
+    - host: broker0.confluent.demo.com
+      http:
+        paths:
+          - pathType: Prefix
+            path: /
+            backend:
+              service:
+                name: kafka-0-internal
+                port:
+                  number: 9092
+    - host: broker1.confluent.demo.com
+      http:
+        paths:
+          - pathType: Prefix
+            path: /
+            backend:
+              service:
+                name: kafka-1-internal
+                port:
+                  number: 9092
+    - host: broker2.confluent.demo.com
+      http:
+        paths:
+          - pathType: Prefix
+            path: /
+            backend:
+              service:
+                name: kafka-2-internal
+                port:
+                  number: 9092

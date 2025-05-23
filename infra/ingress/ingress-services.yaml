@@ -1,0 +1,77 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-services
+  namespace: confluent
+  annotations:    
+    ingress.kubernetes.io/ssl-passthrough: "true"
+    nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+      - schemaregistry.confluent.demo.com        
+      - connect.confluent.demo.com
+      - ksqldb.confluent.demo.com
+      - controlcenter.confluent.demo.com
+      # - mds.confluent.demo.com
+      # secretName: services-external-tls
+  rules:
+    - host: schemaregistry.confluent.demo.com
+      http:
+        paths:
+        - pathType: Prefix
+          path: /
+          backend:
+            service:
+              name: schemaregistry-0-internal
+              #name: schemaregistry-bootstrap-np
+              port:
+                number: 8081
+    - host: connect.confluent.demo.com
+      http:
+        paths:
+        - pathType: Prefix
+          path: /
+          backend:
+            service:
+              name: connect-0-internal
+              #name: connect-bootstrap-np
+              port:
+                number: 8083
+    - host: ksqldb.confluent.demo.com
+      http:
+        paths:
+        - pathType: Prefix
+          path: /
+          backend:
+            service:
+              name: ksqldb-0-internal
+              #name: ksqldb-bootstrap-np
+              port:
+                number: 8088
+    # - host: mds.confluent.demo.com 
+    #   http: 
+    #     paths:
+    #       - pathType: Prefix
+    #         path: /
+    #         backend:
+    #           service:
+    #             name: kafka-mds
+    #             port:
+    #               number: 8090
+    - host: controlcenter.confluent.demo.com
+      http:
+        paths:
+        - pathType: Prefix
+          path: /
+          backend:
+            service:
+              name: controlcenter-0-internal
+              #name: controlcenter-bootstrap-np
+              port:
+                number: 9021
+        

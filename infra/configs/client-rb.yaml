@@ -70,3 +70,18 @@ spec:
   clustersScopeByIds:
     ksqlClusterId: confluent.ksqldb_
   role: SystemAdmin
+---
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: rb-dfederico-extra-connect
+  namespace: confluent
+  labels:
+    component: extra-connect
+spec:
+  principal:
+    type: user 
+    name: dfederico
+  clustersScopeByIds:
+    connectClusterId: confluent.extra-connect
+  role: SystemAdmin

@@ -1,5 +1,7 @@
 # Deploy mTLS+PLAIN+RBAC
 
+This setup uses "fixed" username/password to connect to kafka from the outside and mTLS on the inside listeners, and RBAC authorization backed by a file store.
+
 - mTLS for Internal listener
 - PLAIN for External listener
 - MDS for RBAC
@@ -181,8 +183,9 @@ kubectl create secret generic ksqldb-bearer-creds \
 kubectl apply -f infra/secrets/ksqldb-bearer-creds.yaml
 ```
 
+### Control Center Authentication
 
-### Control Center Authentication (JAAS)
+Control center will pass the authentication credentials via MDS
 
 ## RoleBindings
 
@@ -193,7 +196,160 @@ See [client-rb.yaml](./client-rb.yaml)
 kubectl apply -f infra/configs/client-rb.yaml
 ```
 
+## Monitoring (Prometheus / Grafana)
+
+Install Prometheus Operator if needed
+
+```shell
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+helm upgrade --install prometheus prometheus-community/prometheus \
+ --set alertmanager.persistentVolume.enabled=false \
+ --set server.persistentVolume.enabled=false \
+ --namespace monitoring \
+ --create-namespace
+```
+
+To access prometheus internally `prometheus-server.monitoring.svc.cluster.local` at port 80
+
+```shell
+export PROMETHEUS_POD=$(kubectl get pods --namespace monitoring -l "app.kubernetes.io/name=prometheus,app.kubernetes.io/instance=prometheus" -o jsonpath="{.items[0].metadata.name}")
+kubectl --namespace monitoring port-forward $PROMETHEUS_POD 9090
+```
+
+Or deploy an ingress (provided below after grafana install)
+
+Install Grafana
+
+```shell
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo update
+
+helm upgrade --install grafana grafana/grafana --namespace monitoring
+```
+
+### ALTERNATIVE install including default prometheus datasource
+
+Use the following helm values to configure the datasource (`infra/monitoring/grafana-values.yaml`)
+
+```yaml
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus-server.monitoring.svc.cluster.local
+        access: proxy
+        isDefault: true
+## This allows for dashboards to be created in configmaps and then labeled for auto-load
+sidecar:  
+  dashboards:
+    enabled: true
+    label: grafana_dashboard
+    labelValue: "true"
+```
+
+```shell
+helm upgrade --install grafana grafana/grafana --namespace monitoring \
+  --values infra/monitoring/grafana-values.yaml
+```
+
+## External access via port-foward
+
+```shell
+## GET 'admin' PASSWORD
+kubectl get secret --namespace monitoring grafana \
+  -o jsonpath="{.data.admin-password}" | base64 --decode ; echo
+
+## OPEN PORT-FORWARD
+kubectl port-forward \
+  $(kubectl get pods -n monitoring -l app.kubernetes.io/name=grafana,app.kubernetes.io/instance=grafana -o name) \
+  3000 --namespace monitoring
+```
+
+Create a Prometheus datasource, remember that the service lies inside k8s (`prometheus-server.monitoring.svc.cluster.local`)
+
+### Ingress for monitoring
+
+For convenience an ingress is provided in `infra/ingress/ingress-monitoring.yaml`
+NOTE: Resolution by the ingress might fail or redirect to controlcenter, in such cases use an incognito window
+
+## Prometheus exporter metrics
+
+When deploying Confluent Platform with Confluent for Kubernetes, the default Prometheus JMX exporter configuration can be overridden with the configuration necessary for this project.
+
+The following metrics configuration can be added to the Custom Resource for a Confluent Platform component:
+
+```yaml
+spec:
+  metrics:
+    prometheus:
+      whitelist:
+        # copy the whitelistObjectNames section from the jmx-exporter yaml configuration for the component.
+      blacklist:
+        # copy the blacklistObjectNames section from the jmx-exporter yaml configuration for the component.
+      rules:
+        # copy the rules section from the jmx-exporter yaml configuration for the component.
+```
+
+## Grafana Dashboards
+
+Typical dashboards are provided by Confluent PS at [JMX Monitoring Stack - CFK](https://github.com/confluentinc/jmx-monitoring-stacks/tree/main/jmxexporter-prometheus-grafana/cfk)
+
+Mind that these dashboards need to be converted to include the namespace of the cluster. See [update-dashboards.sh](https://github.com/confluentinc/jmx-monitoring-stacks/blob/main/jmxexporter-prometheus-grafana/cfk/update-dashboards.sh)
+
+```shell
+kubectl create configmap grafana-kraft-cluster \
+  --from-file=infra/monitoring/dashboards/kraft.json \
+  --namespace monitoring
+kubectl label configmap grafana-kraft-cluster grafana_dashboard="true" --namespace monitoring
+
+kubectl create configmap grafana-kafka-cluster \
+  --from-file=infra/monitoring/dashboards/kafka-cluster.json \
+  --namespace monitoring
+kubectl label configmap grafana-kafka-cluster grafana_dashboard="true" --namespace monitoring
+```
+
+
+
+
+
+
+## Tests
+
+### Outside
+
+Accessing from the outside via ingres...
+
+Assume a properties file for Kafka clients with the following format (or similar)
+
+```conf
+security.protocol=SASL_SSL
+sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username='dfederico' password='password';
+sasl.mechanism=PLAIN
+ssl.truststore.type=PEM
+ssl.truststore.location=<ABSOLUTE_PATH>/InternalCAcert.pem
+```
+
+```shell
+## WHEN USING NODEPORT/STATIC/ROUTES THE PORT IS USUALLY 443 INSTEAD OF 9092 (LOADBALANCER)
+
+kafka-topics --bootstrap-server bootstrap.confluent.demo.com:443 \
+  --command-config ./infra/configs/plain-client.properties \
+  --list
+
+# AND/OR
+
+kafka-broker-api-versions --bootstrap-server bootstrap.confluent.demo.com:443 \
+--command-config ./infra/configs/plain-client.properties
+```
+
+### ///TODO Confirm CONFLUENT CLI
+
 ## TEST mTLS (KAFKA)
+
+From inside the cluster
 
 Assume a certificate created for a user using the same CA in the Kafka Truststore.
 
@@ -291,194 +447,4 @@ kafka-avro-console-consumer --bootstrap-server kafka.confluent.demo.com:9092 --t
 --property schema.registry.ssl.keystore.location=/Users/dfederico/projects/cflt-sandbox/cflt.cfk.demo/certs/generated/client.p12 \
 --property schema.registry.ssl.keystore.password=secure \
 --from-beginning
-```
-
-## KSQLDB (Bearer) - Work In Progress
-
-```shell
-kubectl create secret generic ksqldb-bearer \
-  --from-file=bearer.txt=infra/auth/secrets/ksqldb-bearer.txt \
-  --namespace confluent \
-  --dry-run=client \
-  --output yaml >> infra/auth/secrets/ksqldb-bearer.yaml
-
-kubectl apply -f infra/auth/secrets/ksqldb-bearer.yaml
-```
-
-```shell
-kubectl create secret generic ksqldb-basic \
-  --from-file=basic.txt=infra/auth/secrets/ksqldb-basic.txt \
-  --namespace confluent \
-  --dry-run=client \
-  --output yaml >> infra/auth/secrets/ksqldb-basic.yaml
-
-kubectl apply -f infra/auth/secrets/ksqldb-basic.yaml
-```
-
-```shell
-kubectl create secret generic c3-ksqldb-basic \
-  --from-file=basic.txt=infra/auth/secrets/c3-ksqldb-basic.txt \
-  --namespace confluent \
-  --dry-run=client \
-  --output yaml >> infra/auth/secrets/c3-ksqldb-basic.yaml
-
-kubectl apply -f infra/auth/secrets/c3-ksqldb-basic.yaml
-```
-
-## PLAIN AUTH SETUP
-
-This setup uses "fixed" username/password for authentication and RBAC using file store.
-
-Conveniently avoids login to "HTTP" Services using mTLS (ie. SR, Connect, etc...)
-
-### Platform
-
-See. [platform-plain-rbac.yaml](./platform-plain-rbac.yaml)
-
-```shell
-
-
-
-
-kubectl apply -f infra/auth/secrets/connect-basic.yaml
-
-kubectl create secret generic connect-plain \
-  --from-file=plain.txt=infra/auth/secrets/connect-plain.txt \
-  --namespace confluent \
-  --dry-run=client --output yaml > infra/auth/secrets/connect-plain.yaml
-
-kubectl apply -f infra/auth/secrets/connect-plain.yaml
-
-kubectl create secret generic connect-bearer \
-  --from-file=bearer.txt=infra/auth/secrets/connect-plain.txt \
-  --namespace confluent \
-  --dry-run=client --output yaml > infra/auth/secrets/connect-bearer.yaml
-
-kubectl apply -f infra/auth/secrets/connect-bearer.yaml
-
-kubectl create secret generic ksqldb-plain \
-  --from-file=basic.txt=infra/auth/secrets/ksqldb-plain.txt \
-  --namespace confluent \
-  --dry-run=client --output yaml > infra/auth/secrets/ksqldb-plain.yaml
-
-kubectl apply -f infra/auth/secrets/ksqldb-plain.yaml
-
-kubectl create secret generic c3-plain \
-  --from-file=basic.txt=infra/auth/secrets/c3-plain.txt \
-  --namespace confluent \
-  --dry-run=client --output yaml > infra/auth/secrets/c3-plain.yaml
-
-kubectl apply -f infra/auth/secrets/c3-plain.yaml
-```
-
-Bootstrap services and ingresses for kafka and services
-
-```shell
-kubectl apply -f infra/ingress/bootstrap-kafka.yaml
-kubectl apply -f infra/ingress/ingress-kafka.yaml 
-kubectl apply -f infra/ingress/ingress-services.yaml 
-```
-
-Adjust DNS or `etc/hotst`
-
-```shell
-kubectl get service --namespace confluent ingress-nginx-controller --output wide --watch
-```
-
-TEST
-
-```shell
-kafka-topics --bootstrap-server bootstrap.confluent.demo.com:443 \
-    --command-config infra/auth/secrets/mtls-client.properties \
-    --list
-```
-
-## CC Root CA as Secret
-
-```shell
-keytool -import -trustcacerts \
-  -alias letsencryptroot \
-  -file infra/auth/secrets/isrgrootx1.pem \
-  -keystore infra/auth/secrets/cc_truststore.jks
-```
-
-```shell
-kubectl create secret generic cc-root-jks \
-  --from-file=cc_truststore.jks=infra/auth/secrets/cc_truststore.jks \
-  --namespace confluent \
-  --dry-run=client --output yaml > infra/auth/secrets/cc-root-jks.yaml
-
-kubectl apply -f infra/auth/secrets/cc-root-jks.yaml
-```
-
-```shell
-kubectl create secret generic cc-root-pem \
-  --from-file=cc-ca.pem=infra/auth/secrets/isrgrootx1.pem \
-  --namespace confluent \
-  --dry-run=client --output yaml > infra/auth/secrets/cc-root-pem.yaml
-
-kubectl apply -f infra/auth/secrets/cc-root-pem.yaml
-```
-
-
-
-# Start Services (KeyCloak)
-
-Docker compose or K8s deployment in [keycloak](keycloak/) folder.
-
-
-## Tests KeyCloak
-
-Assuming `keycloak` is added to `etc/hosts` or any other name to the DNS.
-
-```shell
-curl --url http://keycloak/realms/sso_test/.well-known/openid-configuration | jq
-```
-
-Assuming the [demo](keycloak/realms/demo-realm.json) realm configuration.
-
-```shell
-curl --request POST \
-  --url http://keycloak/realms/sso_test/protocol/openid-connect/token \
-  -H 'Content-Type: application/x-www-form-urlencoded' \
-  --data-urlencode 'grant_type=client_credentials' \
-  --data-urlencode 'client_id=kafka_client' \
-  --data-urlencode 'client_secret=VwQ0h755Ni8s595ZY7XmOgMD8BWTAWri' \
-  | jq
-```
-
-Decode the token, it may lack a closing final `=` as tokens are padded in blocks of 4 bytes (note the use of awk)
-
-```shell
-
-### IMPORTANT... The below code has a hack that adds one padding symbol (=) to terminate the json.
-### Tokens are 4 bytes and you might need to ad up to three (3) depending on the toker
-### Othewise 'jq' won't pretty print the decoded token
-
-curl -s --request POST \
-  --url http://keycloak/realms/sso_test/protocol/openid-connect/token \
-  -H 'Content-Type: application/x-www-form-urlencoded' \
-  --data-urlencode 'grant_type=client_credentials' \
-  --data-urlencode 'client_id=kafka_client' \
-  --data-urlencode 'client_secret=VwQ0h755Ni8s595ZY7XmOgMD8BWTAWri' \
-  | jq -r .access_token \
-  | cut -d'.' -f2 \
-  | awk '{print $1"="}' \
-  | base64 -d | tr -d '\n' | jq .
-```
-
-
-
-### MDS OIDC Provider
-
-This is required for [mTLS+OAuth+RBAC](./platform-mtls-oauth-rbac.yaml). Used to validate Tokens presented by Kafka Clients that access Kafka
-
-```shell
-kubectl create secret generic oidc-creds \
-  --from-file=oidcClientSecret.txt=infra/auth/secrets/oidc-creds.txt \
-  --namespace confluent \
-  --dry-run=client \
-  --output yaml >> infra/auth/secrets/oidc-creds.yaml
-
-kubectl apply -f infra/auth/secrets/oidc-creds.yaml
 ```
